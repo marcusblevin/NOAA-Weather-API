@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+<meta charset="utf-8"/>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+</head>
+<body>
+    <form>
+        <label for="dataSet">DataSet</label> <select id="dataSet"></select> &nbsp; &nbsp;
+        <label for="zip">Zip</label> <input type="text" id="zip" size="8" value="45066"> &nbsp; &nbsp;
+        <label for="startDate">Start Date</label> <input type="text" id="startDate" class="datepicker" value="2010-01-01" placeholder="yyyy-mm-dd" size="8"> &nbsp; &nbsp;
+        <label for="endDate">End Date</label> <input type="text" id="endDate" class="datepicker" value="2010-01-01" placeholder="yyyy-mm-dd" size="8"> &nbsp; &nbsp;
+        <button id="search">Search</button>
+    </form>
+    
+    <div id="status"></div>
+    
+    <pre id="response"></pre>
+    <script type="text/javascript">
+    
+        var dataTypes = {};
+        
+        var baseURL = 'https://www.ncdc.noaa.gov/cdo-web/api/v2/';
+        var token = 'QdtdKepCeUlDOCXybkHvAzRRgHqwojZJ';
+        var limit = 1000;
+        /*var datasetID = 'GHCND';
+        var locationID = 'ZIP:45066';
+        var stationdID = '';
+        var startDate = '';
+        var endDate = '';*/
+        
+        getDataTypes(0);
+        getDataSets();
+        
+    
+        $( '#search' ).click(function(event) {
+            event.preventDefault();
+            
+            var locationID = 'ZIP:'+$( '#zip' ).val();
+            
+            getData( $('#dataSet').val(), locationID, $('#startDate').val(), $('#endDate').val() );
+        });
+        
+    
+        function getData(dataSetID, locationID, startDate, endDate) {
+            $.ajax({
+                url: baseURL+'data?datasetid='+dataSetID+'&locationid='+locationID+'&startdate='+startDate+'&enddate='+endDate+'&limit='+limit+'&units=standard',
+                dataType: 'json',
+                method: 'get',
+                headers: { token: token },
+                success: function(d) {
+                    console.log(d);
+                    if (Object.keys(d).length > 0) {
+                        for (var i=0; i<d.results.length; i++) {
+                            if (dataTypes[d.results[i].datatype] != undefined)  {  d.results[i].datatype = dataTypes[d.results[i].datatype];  }
+                        }
+                    }
+                    
+                    $( "#response" ).html(JSON.stringify(d, undefined, 2));
+                }, 
+                error: function(x,h,r) {
+                    console.log(x);
+                    alert(JSON.stringify(x.responseText, undefined, 2));
+                }
+            });
+        }
+        
+        function getDataTypes(offset) {
+            log('getting data types...'+offset);
+            $.ajax({
+                url: baseURL+'datatypes?offset='+offset+'&limit='+limit,
+                dataType: 'json',
+                method: 'get',
+                headers: { token: token },
+                success: function(d) {
+                    for (var i=0; i<d.results.length; i++) {
+                        dataTypes[d.results[i].id] = d.results[i].name;
+                    }
+                    
+                    if (d.metadata.resultset.count > offset && d.results.length == limit) {
+                        // max number of results returned, need to run again with 
+                        offset = offset + limit;
+                        getDataTypes(offset);
+                    }
+                },
+                error: function(x,h,r) {
+                    alert(r);
+                },
+                complete: function() {
+                    log('done with Data Types');
+                }
+            });
+        }
+        
+        function getDataSets() {
+            log('getting Data Sets...');
+            $.ajax({
+                url: baseURL+'datasets?limit='+limit,
+                dataType: 'json',
+                method: 'get',
+                headers: { token: token },
+                success: function(d) {
+                    var html = '';
+                    for (var i=0; i<d.results.length; i++) {
+                        html += '<option value="'+d.results[i].id+'">'+d.results[i].name+'</option>';
+                    }
+                    $( "#dataSet" ).html(html);
+                },
+                error: function(x,h,r) {
+                    alert(r);
+                },
+                complete: function() {
+                    log ('done with Data Sets');
+                }
+            });
+        }
+        
+        function log(str) {
+            $( "#status" ).append(str+'<br>');
+        }
+        
+    </script>
+    
+</body>
+</html>
